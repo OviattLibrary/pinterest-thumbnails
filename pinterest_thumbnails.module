@@ -18,7 +18,7 @@
 
 function pinterest_thumbnails_help($path, $arg) {
   if ($path == 'admin/help#pinterest_thumbnails') {
-    return t('Pinterest Thumbnails allows website administrators to set a specific Pinterest RSS Feed from
+    return t('Pinterest Thumbnails allows site administrators to set a specific Pinterest RSS Feed from
       which a block, token or thumbnail can be used to display thumbnails from Pinterest');
   }
 }
