@@ -24,6 +24,14 @@ Enable the Module in the module configuration section (yoursite.com/admin/module
 Set configuration settings before placing your block or using php function in yoursite.com/admin/config/media/pinterest_thumbnails
 ```
 
+```
+Output is available in a block in Drupal 7's block system, or by php function: pinterest_thumbnails_display;
+```
+
+```
+Make sure your settings are configured before deploying block or function.
+```
+
 ## Tests
 
 No tests exist in current module.
