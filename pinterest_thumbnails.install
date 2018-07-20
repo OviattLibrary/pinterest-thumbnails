@@ -1,0 +1,72 @@
+<?php
+      
+/**   
+ * @file
+ * Install, update and uninstall functions for the pinterest thumbnails module.
+ */
+
+/**
+ * Implements hook_install().
+ * Creates a writable directory to store our processed thumbnails
+ */
+
+function pinterest_thumbnails_install() { 
+  // Create the pinterest directory and ensure it's writable.
+  $directory = file_default_scheme() . '://pinterest_thumbnails';
+  file_prepare_directory($directory, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS);
+}
+
+/**
+ * Implements hook_uninstall().
+ * Removes our pinterest_thumbnails table
+ * @todo delete the pinterest thumbnails folder in sites/default/files
+ */ 
+
+function pinterest_thumbnails_uninstall() {
+
+  // Uninstall all of our saved variables
+  // @todo can this be in array and foreached?  is that better?  maybe not
+  variable_del('pinterest_thumbnails_rss_title');
+  variable_del('pinterest_thumbnails_landing_page');
+  variable_del('pinterest_thumbnails_rss_feed');
+  variable_del('pinterest_thumbnails_num_items');
+
+  // Drop our Pinterest Thumbnails Table
+  $table = 'pinterest_thumbnails';
+  db_drop_table($table);
+
+}
+
+/**
+ * Implements hook_schema()
+ * Creates a table and fields in our database to store our image data
+ */
+
+function pinterest_thumbnails_schema() {
+  $schema['pinterest_thumbnails'] = array(
+    'description' => 'The base table for Pinterest Thumbnails.',
+    'fields' => array(
+      'pinid' => array(
+        'description' => 'Primary key for Pinterest thumbnails entries.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'pin_address' => array(
+        'description' => 'Url address for our stored Pinterest thumbnails.',
+        'type' => 'text',
+      ),
+      'pin_url' => array(
+        'description' => 'Url address to Pinterest image landing page.',
+        'type' => 'text',
+      ),
+      'pin_title' => array(
+        'description' => 'Title of Pinterest Image.',
+        'type' => 'text',
+      ),
+    ),
+    'primary key' => array('pinid'),
+  );
+
+  return $schema;
+}

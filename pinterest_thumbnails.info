@@ -1,0 +1,7 @@
+;$Id$
+name = Pinterest Thumbnails
+description = Stores Pinterest thumbnails from a specified Pinterest RSS Feed which can be displayed in a block or through a function.
+core = 7.x
+package = Pinterest Thumbnails
+files[] = pinterest_thumbnails.module
+version = 7.x-alpha2

@@ -1,0 +1,406 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Pinterest Thumbnails module file
+ *
+ * This module allows site administrators to specify a Pinterest RSS feed,
+ * from which thumbnails will be scaled and cropped and stored locally.
+ * These thumbnails and links to their individual Pinterest Pages, as
+ * well as a heading linked to the overall category page will be available
+ * for printing as a block, or inserted as a token or function call.
+ */
+
+/**
+ * Implements hook_help().
+ */
+
+function pinterest_thumbnails_help($path, $arg) {
+  if ($path == 'admin/help#pinterest_thumbnails') {
+    return t('Pinterest Thumbnails allows site administrators to set a specific Pinterest RSS Feed from
+      which a block, token or thumbnail can be used to display thumbnails from Pinterest');
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+
+function pinterest_thumbnails_menu() {
+  $items = array();
+
+  $items['admin/config/media/pinterest_thumbnails'] = array(
+    'title' => 'Pinterest Thumbnails',
+    'description' => 'Configuration for the Pinterest Thumbnails module.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('pinterest_thumbnails_form'),
+    'access arguments' => array('administer content'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+
+function pinterest_thumbnails_block_info() {
+  $blocks = array();
+
+  $blocks['pinterest_thumbnails'] = array(
+    'info' => t('A block to display our Pinterest Thumbnails'),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+
+function pinterest_thumbnails_block_view($block_name = '') {
+  if ($block_name == 'pinterest_thumbnails') {
+
+    $content = pinterest_thumbnails_display();
+
+    $block = array(
+      'subject' => t('Pinterest Thumbnails'),
+      'content' => $content,
+    );
+    
+    return $block;
+  }
+}
+
+
+/**
+ * Implements hook_form().
+ * Our administrative form to store our Pinterest settings
+ */
+
+function pinterest_thumbnails_form() {
+
+  $form['pinterest_thumbnails_rss_title'] = array (
+    '#type' => 'textfield',
+    '#default_value' => variable_get('pinterest_thumbnails_rss_title',
+                                     'Pinterest Thumbnails RSS Title'),
+    '#title' => t('Pinterest Thumbnails RSS Title'),
+    '#description' => t('Title to appear above Pinterest Thumbnails Feed'),
+    '#size' => 60,
+    '#maxlength' => 120,
+    '#required' => TRUE,
+  );
+
+  $form['pinterest_thumbnails_landing_page'] = array (
+    '#type' => 'textfield',
+    '#default_value' => variable_get('pinterest_thumbnails_landing_page',
+                                     'Pinterest Landing Page Address'),
+    '#title' => t('Pinterest Landing Page'),
+    '#description' => t('The default landing page for the Pinterest feed.  Either the homepage for the Pinterest account, or a category page.'),
+    '#size' => 60,
+    '#maxlength' => 120,
+    '#required' => TRUE,
+  );
+
+  $form['pinterest_thumbnails_rss_feed'] = array (
+    '#type' => 'textfield',
+    '#default_value' => variable_get('pinterest_thumbnails_rss_feed', 
+                                     'Pinterest Thumbnails RSS Feed'),
+    '#title' => t('Pinterest Thumbnails RSS Feed Address'),
+    '#description' => t('The RSS Feed to pull images from Pinterest.  For example a category page http://pinterest.com/oviatt/digital-collections-pin-a-day would get .rss added at the end as http://pinterest.com/oviatt/digital-collections-pin-a-day.rss'),
+    '#size' => 60,
+    '#maxlength' => 120,
+    '#required' => TRUE,
+  );
+
+  $form['pinterest_thumbnails_num_items'] = array (
+    '#type' => 'textfield',
+    '#default_value' => variable_get('pinterest_thumbnails_num_items', 
+                                     '4'),
+    '#title' => t('Number of Items to Display'),
+    '#description' => t('Number of Pinterest Thumbnails to Display'),
+    '#size' => 2,
+    '#maxlength' => 2,
+    '#required' => TRUE,
+  );
+
+  // Submit button
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save settings'),
+  );
+
+  return $form;
+}
+
+/**
+ * Save configuration settings for the Pinterest Thumbnails module
+ */
+
+function pinterest_thumbnails_form_submit($form, &$form_state) {
+
+  $form_has_errors = FALSE;
+
+  if (!empty($form_state['values']['pinterest_thumbnails_rss_title'])) {
+    $current_title = $form_state['values']['pinterest_thumbnails_rss_title'];
+    $previous_title = variable_get('pinterest_thumbnails_rss_title');
+
+      // prevents check_plain from double encoding a pre-existing string
+
+      if ($current_title != $previous_title) {
+        $set_title = check_plain($form_state['values']['pinterest_thumbnails_rss_title']);
+        variable_set('pinterest_thumbnails_rss_title',
+                   $set_title);
+      }
+  }
+
+  if (!empty($form_state['values']['pinterest_thumbnails_landing_page'])) {
+    $landing_page = $form_state['values']['pinterest_thumbnails_landing_page'];
+    $valid_landing_page = valid_url($landing_page, TRUE);
+    if ($valid_landing_page == TRUE) {
+      $set_landing_page = check_url($form_state['values']['pinterest_thumbnails_landing_page']);
+      variable_set('pinterest_thumbnails_landing_page',
+                   $set_landing_page);
+    }
+    elseif ($valid_landing_page == FALSE) {
+      drupal_set_message(t('Your settings for Pinterest Thumbnails landing page is an invalid URL.'), 'error');
+      $form_has_errors = TRUE;
+    }
+  }
+
+  if (!empty($form_state['values']['pinterest_thumbnails_rss_feed'])) {
+    $feed_page = $form_state['values']['pinterest_thumbnails_rss_feed'];
+    $valid_feed_page = valid_url($feed_page, TRUE);
+    if ($valid_feed_page == TRUE) {
+      $set_feed_page = check_url($form_state['values']['pinterest_thumbnails_rss_feed']);
+      variable_set('pinterest_thumbnails_rss_feed',
+                   $set_feed_page);
+    }
+    elseif ($valid_feed_page == FALSE) {
+      drupal_set_message(t('Your settings for Pinterest RSS feed page is an invalid URL.'), 'error');
+      $form_has_errors = TRUE;
+    }
+  }
+
+  if (!empty($form_state['values']['pinterest_thumbnails_num_items'])) {
+    $num_feed_items = $form_state['values']['pinterest_thumbnails_num_items'];
+    if (is_numeric($num_feed_items)) {
+      variable_set('pinterest_thumbnails_num_items',
+                   $num_feed_items);
+    }
+    elseif (!is_numeric($num_feed_items)) {
+      drupal_set_message(t('Your value for Number of Pinterest Thumbnails to Display must be numeric.'), 'error');
+    }
+  }
+
+  if ($form_has_errors == FALSE) {
+    drupal_set_message(t('The settings have been saved'));
+  }
+}
+
+/**
+ * function pinterest_thumbnails_fetch_rss
+ * Sets our variables to pass to pinterest_thumbnails_content().
+ * Checks RSS result code and returns error if nothing to pull.
+ */
+    
+function pinterest_thumbnails_fetch_rss() {
+
+  // Clear out old files first, then pull in new files
+  $filepath = 'public://pinterest_thumbnails/';
+  $results_array = file_scan_directory($filepath, '/.*\.jpg$/');
+ 
+  foreach ($results_array as $results) {
+    $file = $results->uri;
+    file_unmanaged_delete($file);
+  }
+  
+  if (variable_get('pinterest_thumbnails_rss_title')) {
+    $title = variable_get('pinterest_thumbnails_rss_title');
+  }
+  if (variable_get('pinterest_thumbnails_landing_page')) {
+    $landing_page = variable_get('pinterest_thumbnails_landing_page');
+  }
+  if (variable_get('pinterest_thumbnails_rss_feed')) {
+    $url = variable_get('pinterest_thumbnails_rss_feed');
+  }
+  if (variable_get('pinterest_thumbnails_num_items')) {
+    $num_items = variable_get('pinterest_thumbnails_num_items');
+  }
+
+  $http_result = drupal_http_request($url);
+    
+  if ($http_result->code == 200) {
+    $doc = simplexml_load_string($http_result->data);
+    if ($doc === FALSE) { 
+      $msg = "Error parsing books for %url: %msg.";
+      $vars = array(
+        '%url' => $url,
+        '%msg' => $e->getMessage(),
+      );
+      watchdog('pinterest_thumbnails', $msg, $vars, WATCHDOG_WARNING);
+      return t("Getting RSS feed information resulted in an error");
+    }
+      // if doc has result code 200 we gather our content
+      return pinterest_thumbnails_content($doc, $title, $landing_page, $url, $num_items);
+  }
+  // Otherwise we don't have any data
+  else {
+    $msg = 'No content from %url.';
+    $vars = array('%url' => $url);
+    watchdog('pinterest_thumbnails', $msg, $vars, WATCHDOG_WARNING);
+    // returning false so this doesn't show up unless valid - was showing up on personal pages regardless
+    return FALSE;
+  } 
+} //  end fetch_rss
+
+/**
+ * function pinterest_thumbnails_content
+ * $doc = RSS feed parsed out by simplexml_load_string
+ * $title = title to appear above Pinterest feed
+ * $landing_page = link to pinterest landing page or category page, links in title header
+ * $url = the rss feed's url
+ * $num_items = the number of items to display
+ */
+
+function pinterest_thumbnails_content($doc, $title, $landing_page, $url, $num_items) {
+  $items = $doc->channel->item;
+  $count_items = count($items);
+  $length = ($count_items < $num_items) ? $count_items : $num_items;
+  
+  $i = 0;
+  foreach ($items as $item) {
+
+    // generate random string
+    $rand_string = pinterest_thumbnails_random_string($name_length = 8); 
+
+    $filepath = 'public://pinterest_thumbnails/' . $rand_string . '.jpg';
+
+    // grab description, which contains our image url
+    $image_url = $item->description;
+
+    // regular expression to pull src from the string
+    $image_url = preg_match('@src="([^"]+)"@', $image_url, $image_match);
+
+    // our url is in the [1] place of the array
+    $image_url = $image_match[1];
+    $image = file_get_contents($image_url);
+    $file = file_save_data($image, $filepath, FILE_EXISTS_REPLACE);
+    $loaded_image = image_load($filepath);
+    $thumb_image = $loaded_image;
+
+    $image_title = strip_tags($item->title);    
+    $image_link = check_url($item->link);
+
+    if ($loaded_image == FALSE) {
+      drupal_set_message(t('Unable to load image from filepath provided.'), 'error');
+    }
+    else {
+      $cropped_image = image_scale_and_crop($loaded_image, 75, 75);
+      image_save($loaded_image);
+      
+      // insert our filepath into our table pinterest_thumbnails
+      db_insert('pinterest_thumbnails')
+        ->fields(array(
+          'pin_address' => $filepath,
+          'pin_url' => $image_link,
+          'pin_title' => $image_title,
+        ))
+        ->execute();    
+
+      // delete all our entries except newest
+      $sql = "SELECT *
+        FROM {pinterest_thumbnails}
+        ORDER BY pinid DESC
+        LIMIT 0, $length";
+
+      $result = db_query($sql);
+      
+      // adding our pinid's to exclude on our query of unused objects
+      $result_array = array();
+      
+      foreach ($result as $pinid) {
+        $result_array[] = $pinid->pinid;
+      }
+  
+      $matches = implode(",", $result_array);
+
+      $sql2 = "DELETE
+        FROM {pinterest_thumbnails}
+        WHERE pinid NOT IN($matches)";
+
+      db_query($sql2);
+      
+    }
+
+    // breaks foreach loop when we reach our number limit
+    if (++$i == $length) {
+      break;
+    }
+  }
+
+    // watchdog log that it was successful
+    watchdog('pinterest_thumbnails', 'Pinterest Thumbnails have been updated', array(), WATCHDOG_INFO);
+
+}
+
+/**
+ * Function to present marked up Pinterest Thumbnails
+ */
+
+function pinterest_thumbnails_display() {
+
+  if (variable_get('pinterest_thumbnails_num_items')) {
+    $num_items = variable_get('pinterest_thumbnails_num_items', '4');
+  }
+  if (variable_get('pinterest_thumbnails_rss_title')) {
+    $title = variable_get('pinterest_thumbnails_rss_title');
+  }
+
+    $sql = "SELECT *
+    FROM {pinterest_thumbnails}
+    ORDER BY pinid DESC
+    LIMIT 0, $num_items";
+   
+    $result = db_query($sql);
+
+    $output = '';
+
+    foreach($result as $item) {
+      $pin_url = $item->pin_url;
+      $pin_title = $item->pin_title;
+      $pin_title = str_replace('"',"'",$pin_title);
+      $pin_src = $item->pin_address;
+      $pin_src = file_create_url($pin_src);
+      
+      $output .=  '<a href="' . $pin_url . '" title="' . $pin_title . '"><div class="pinterest_thumbnail"><img alt="' . $pin_title . '" src="' . $pin_src . '" /></div></a>';
+    }
+  if (!empty($output)) {
+    $output = '<h2>' . $title . '</h2><div id="pinterest_wrapper">' . $output . '</div>';
+  }
+
+  return $output;
+}
+
+/**
+ * Randomizing function, returns random alpha-numberic string
+ * $name_length = number of alpha-numeric characters to return
+ */
+
+function pinterest_thumbnails_random_string($name_length = 8) {
+  $alpha_numeric = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  return substr(str_shuffle($alpha_numeric), 0, $name_length);
+}
+
+/*
+ * Implements hook_cron().
+ */
+
+function pinterest_thumbnails_cron() {
+
+    pinterest_thumbnails_fetch_rss();
+
+}
