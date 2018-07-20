@@ -25,7 +25,7 @@ Set configuration settings before placing your block or using php function in yo
 ```
 
 ```
-Output is available in a block in Drupal 7's block system, or by php function: pinterest_thumbnails_display;
+Output is available in a block in Drupal 7's block system, or by php function: pinterest_thumbnails_display();
 ```
 
 ```
